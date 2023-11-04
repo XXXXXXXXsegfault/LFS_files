@@ -1,0 +1,7 @@
+Creating a bootable LFS Linux installer image
+
+* Copy the root filesystem of your LFS Linux to "sysroot"
+* Copy the kernel image file to "vmlinuz"
+* Enter "make"
+
+The image file will be called "install.img"
