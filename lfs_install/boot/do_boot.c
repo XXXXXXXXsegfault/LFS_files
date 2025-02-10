@@ -127,11 +127,13 @@ int fill_e820(struct linux_boot_params *boot_params)
 	eficall(efitab->boot_services->getmemmap);
 	if(efi_error!=5)
 	{
+		error_message("EFI error (1)");
 		return 1;
 	}
 	np=size+2*desc_size+4095>>12;
 	if((meminfo=palloc(np))==0)
 	{
+		error_message("Failed to reserve memory for the memory map.");
 		return 1;
 	}
 	efipush(&size);
@@ -142,6 +144,7 @@ int fill_e820(struct linux_boot_params *boot_params)
 	eficall(efitab->boot_services->getmemmap);
 	if(efi_error)
 	{
+		error_message("EFI error (2)");
 		return 1;
 	}
 	nentries=size/desc_size;
@@ -190,6 +193,7 @@ int fill_e820(struct linux_boot_params *boot_params)
 	if(efi_error)
 	{
 		prelease(meminfo,np);
+		error_message("EFI error (3)");
 		return 1;
 	}
 	return 0;
@@ -220,6 +224,7 @@ int boot_init(char *cmdline,struct ext2_image *kernel,struct ext2_image *initram
 	end_header=kernel->data[0x201];
 	if((boot_params=palloc(1))==0)
 	{
+		error_message("Failed to reserve memory for boot_params.");
 		return -8;
 	}
 	memset(boot_params,0,4096);
@@ -249,6 +254,7 @@ int boot_init(char *cmdline,struct ext2_image *kernel,struct ext2_image *initram
 	memcpy((char *)boot_params+0x1f1,kernel->data+0x1f1,end_header-0x1f1);
 	if(boot_params->magic!=0x53726448||boot_params->version<0x20b)
 	{
+		error_message("Incorrect kernel format");
 		return -9;
 	}
 	if(initramfs->size)
@@ -260,6 +266,7 @@ int boot_init(char *cmdline,struct ext2_image *kernel,struct ext2_image *initram
 	boot_params->load_flags|=0x20;
 	if((linux_buf=palloc(0x8000))==0)
 	{
+		error_message("Failed to reserve memory for the Linux kernel");
 		return -10;
 	}
 	if(fill_e820(boot_params))

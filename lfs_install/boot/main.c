@@ -39,10 +39,6 @@ void *efihandle;
 void bootid(void); // filled by build.c
 #include "palloc.c"
 #include "graphics.c"
-#include "block.c"
-#include "../include/ext2.c"
-#include "ext2_load.c"
-#include "do_boot.c"
 #include "../include/font.c"
 unsigned int getch(void)
 {
@@ -53,6 +49,19 @@ unsigned int getch(void)
 	eficall(efitab->conin->read_key);
 	return code;
 }
+void error_message(char *str)
+{
+	memset(video_buf,0,fbheight*fblength*4);
+	p_str("Error:",6,0,0,0xffffff,video_buf,fblength,fbheight);
+	p_str(str,strlen(str),56,0,0xffffff,video_buf,fblength,fbheight);
+	p_str("Please press any key to exit.",29,0,16,0xffffff,video_buf,fblength,fbheight);
+	memcpy(fbstart,video_buf,fbheight*fblength*4);
+	while(getch()==0xffffffff);
+}
+#include "block.c"
+#include "../include/ext2.c"
+#include "ext2_load.c"
+#include "do_boot.c"
 struct ext2_image config;
 int max_configs;
 int config_y;
@@ -137,10 +146,12 @@ int boot_from_config(void)
 				config.data[x]=0;
 				if(ext2_load_path(config.data+i+6))
 				{
+					error_message("Failed to find the Linux kernel.");
 					return -30;
 				}
 				if(ext2_image_load(&kernel))
 				{
+					error_message("Failed to load the Linux kernel.");
 					return -31;
 				}
 				config.data[x]='\n';
@@ -152,10 +163,12 @@ int boot_from_config(void)
 				config.data[x]=0;
 				if(ext2_load_path(config.data+i+7))
 				{
+					error_message("Failed to find initrd.");
 					return -32;
 				}
 				if(ext2_image_load(&initramfs))
 				{
+					error_message("Failed to load initrd.");
 					return -33;
 				}
 				config.data[x]='\n';
@@ -166,6 +179,7 @@ int boot_from_config(void)
 				x-=i+8;
 				if(x<0)
 				{
+					error_message("CMDLINE format error");
 					return -35;
 				}
 				if(x>2047)
@@ -183,6 +197,7 @@ int boot_from_config(void)
 	{
 		return boot_init(buf,&kernel,&initramfs);
 	}
+	error_message("Incomplete entry");
 	return -34;
 }
 int main(void *handle,struct EFI_system_table *tab)
@@ -196,18 +211,22 @@ int main(void *handle,struct EFI_system_table *tab)
 	}
 	if(block_init())
 	{
+		error_message("Failed to initialize block devices.");
 		return -2;
 	}
 	if(ext2_init())
 	{
+		error_message("Failed to initialize the EXT2 filesystem.");
 		return -3;
 	}
 	if(ext2_load_path("/boot.conf"))
 	{
+		error_message("Failed to find \"/boot.conf\".");
 		return -4;
 	}
 	if(ext2_image_load(&config))
 	{
+		error_message("Failed to load \"/boot.conf\".");
 		return -5;
 	}
 	max_configs=fbheight/16;
